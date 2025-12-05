@@ -241,60 +241,48 @@ export default function App() {
     password: string,
   ) => {
     try {
-      // Create user via server
-      const response = await fetch(`${API_BASE}/auth/signup`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      // Use Supabase Auth to create user directly
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name: name,
+          },
         },
-        body: JSON.stringify({ name, email, password }),
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        toast.error(data.error || "Sign up failed");
+      if (authError) {
+        console.log('Sign up error:', authError);
+        toast.error(authError.message || 'Sign up failed');
         return;
       }
 
-      // Now sign in with the new credentials
-      const { data: signInData, error: signInError } =
-        await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-
-      if (signInError) {
-        toast.error(
-          "Account created but sign in failed. Please sign in manually.",
-        );
-        setAuthView("signin");
-        return;
-      }
-
-      if (signInData.session?.access_token) {
-        setAccessToken(signInData.session.access_token);
-        setUserId(signInData.user.id);
+      if (authData.user && authData.session?.access_token) {
+        setAccessToken(authData.session.access_token);
+        setUserId(authData.user.id);
         setUserName(name);
         setUserEmail(email);
 
         // Store in localStorage for profile
-        localStorage.setItem("userName", name);
-        localStorage.setItem("userEmail", email);
+        localStorage.setItem('userName', name);
+        localStorage.setItem('userEmail', email);
         localStorage.setItem(
-          "memberSince",
+          'memberSince',
           new Date().toISOString(),
         );
 
         setIsAuthenticated(true);
-        toast.success("Account created successfully!");
+        toast.success('Account created successfully!');
 
         // Fetch notes (will be empty for new user)
-        await fetchNotes(signInData.session.access_token);
+        await fetchNotes(authData.session.access_token);
+      } else {
+        toast.info('Please check your email to verify your account');
       }
     } catch (error) {
-      console.log("Sign up error:", error);
-      toast.error("An error occurred during sign up");
+      console.log('Sign up error:', error);
+      toast.error('An error occurred during sign up');
     }
   };
 
